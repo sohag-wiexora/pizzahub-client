@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Forest Noir background disc -->
+  <circle cx="32" cy="32" r="31" fill="#0e1b13"/>
+  <circle cx="32" cy="32" r="31" fill="none" stroke="#c9a24b" stroke-width="2"/>
+  <!-- Pizza slice -->
+  <g transform="rotate(-18 32 34)">
+    <path d="M32 12 C 40 20, 47 30, 50 44 C 40 48, 24 48, 14 44 C 17 30, 24 20, 32 12 Z" fill="#e8c87e"/>
+    <path d="M32 12 C 40 20, 47 30, 50 44 C 40 48, 24 48, 14 44 C 17 30, 24 20, 32 12 Z" fill="none" stroke="#c9a24b" stroke-width="1.5"/>
+    <!-- crust arc -->
+    <path d="M14 44 C 24 48, 40 48, 50 44" fill="none" stroke="#b3541e" stroke-width="4" stroke-linecap="round"/>
+    <!-- pepperoni -->
+    <circle cx="30" cy="26" r="3" fill="#b3541e"/>
+    <circle cx="24" cy="35" r="2.6" fill="#b3541e"/>
+    <circle cx="37" cy="36" r="2.6" fill="#b3541e"/>
+  </g>
+</svg>
