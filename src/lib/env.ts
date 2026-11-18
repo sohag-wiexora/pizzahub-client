@@ -1,25 +1,25 @@
 /**
  * Central access to public environment variables.
- * Values live in `.env.local` (never committed). See `.env.example`.
+ *
+ * The frontend only ever needs ONE public variable:
+ *   NEXT_PUBLIC_API_URL → the Render backend origin.
+ *
+ * Every secret (BETTER_AUTH_SECRET, GOOGLE_CLIENT_ID/SECRET, MONGODB_URI,
+ * STRIPE_SECRET_KEY, STRIPE_WEBHOOK_SECRET, IMGBB_API_KEY, BETTER_AUTH_URL)
+ * lives exclusively in the backend .env on Render — never here.
  */
 
-/** When true (default until the server is wired) every API call is served by the in-app mock layer. */
-export const USE_MOCK_DATA =
-  process.env.NEXT_PUBLIC_USE_MOCK_DATA !== "false";
+/** Render API base URL without a trailing slash. Empty → in-app mock data. */
+export const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(
+  /\/$/,
+  "",
+);
 
-/** Base URL of the Express API (pizzahub-server), without trailing slash. */
-export const API_BASE_URL = (
-  process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:5000"
-).replace(/\/$/, "");
+/**
+ * Mock mode is derived from configuration, not a second flag:
+ * no backend URL configured yet → demo with the in-browser mock database.
+ */
+export const USE_MOCK_DATA = API_BASE_URL === "";
 
-/** Better Auth server origin — usually the same as API_BASE_URL. */
-export const AUTH_BASE_URL = (
-  process.env.NEXT_PUBLIC_BETTER_AUTH_URL ?? API_BASE_URL
-).replace(/\/$/, "");
-
-/** ImgBB API key for menu-item image uploads (safe for browser use). */
-export const IMGBB_API_KEY = process.env.NEXT_PUBLIC_IMGBB_API_KEY ?? "";
-
-export const APP_URL = (
-  process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-).replace(/\/$/, "");
+/** Better Auth is served by the same backend, so it shares the API origin. */
+export const AUTH_BASE_URL = API_BASE_URL;

@@ -21,9 +21,9 @@ import { db } from "@/lib/mock/data";
 /**
  * The single seam between the UI and a data source.
  *
- * With `NEXT_PUBLIC_USE_MOCK_DATA=true` every call is answered by the
- * local mock database. Flipping it to `false` routes each function to the
- * Express API (pizzahub-server) — no UI changes required.
+ * When `NEXT_PUBLIC_API_URL` is empty every call is answered by the local
+ * mock database (demo mode). Setting it to the Render backend origin routes
+ * each function to the Express API (pizzahub-server) — no UI changes needed.
  */
 
 export class ApiError extends Error {

@@ -1,39 +1,47 @@
-import { IMGBB_API_KEY } from "@/lib/env";
+import { API_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
 
 /**
- * Upload an image file to ImgBB and return the hosted URL.
- * ImgBB is required for menu-item images; the API key is safe to use
- * from the browser (documented in the assignment).
+ * Upload an image and return the hosted URL.
+ *
+ * The ImgBB API key lives ONLY on the backend (Render .env) — the browser
+ * posts the file to the Express API, which pushes it to ImgBB and replies
+ * with the public URL. That keeps the secret out of the bundle entirely.
+ *
+ * Mock mode = no backend yet, so the chosen file is returned as a local
+ * data URL — the demo flow still shows exactly the image the user picked.
  */
 export async function uploadToImgBB(file: File): Promise<string> {
-  if (!IMGBB_API_KEY) {
-    // Mock mode has no key configured — fall back to a deterministic
-    // placeholder so the flow stays demoable end to end.
-    await new Promise((r) => setTimeout(r, 600));
-    const seed = encodeURIComponent(file.name.replace(/\.[^.]+$/, ""));
-    return `https://placehold.co/900x600/1b3a2a/e8c87e?text=${seed}`;
+  if (USE_MOCK_DATA) {
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    return new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () =>
+        reject(new Error("Could not read the selected file"));
+      reader.readAsDataURL(file);
+    });
   }
-
-  const base64 = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => {
-      const result = String(reader.result);
-      resolve(result.slice(result.indexOf(",") + 1)); // strip data:image/...;base64,
-    };
-    reader.onerror = () => reject(new Error("Could not read the selected file"));
-    reader.readAsDataURL(file);
-  });
 
   const form = new FormData();
-  form.append("image", base64);
+  form.append("image", file);
 
-  const res = await fetch(
-    `https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`,
-    { method: "POST", body: form },
-  );
-  const json = await res.json();
-  if (!res.ok || !json?.data?.url) {
-    throw new Error(json?.error?.message ?? "Image upload failed. Try again.");
+  const res = await fetch(`${API_BASE_URL}/api/uploads`, {
+    method: "POST",
+    body: form,
+    credentials: "include",
+  });
+
+  const json = (await res.json().catch(() => null)) as
+    | { url?: string; data?: { url?: string }; message?: string }
+    | null;
+
+  if (!res.ok) {
+    throw new Error(json?.message ?? "Image upload failed. Please try again.");
   }
-  return json.data.url as string;
+
+  const url = json?.url ?? json?.data?.url;
+  if (!url) {
+    throw new Error("The server did not return an image URL.");
+  }
+  return url;
 }

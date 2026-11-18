@@ -8,9 +8,10 @@ import type {
 } from "@/types";
 
 /**
- * In-memory seed database used while `NEXT_PUBLIC_USE_MOCK_DATA=true`.
- * Shapes are identical to the pizzahub-server responses, so the real
- * backend can replace this file without touching the UI layer.
+ * In-memory seed database used while no backend URL is configured
+ * (`NEXT_PUBLIC_API_URL` empty). Shapes are identical to the
+ * pizzahub-server responses, so the real backend can replace this file
+ * without touching the UI layer.
  */
 
 /** Unsplash helper — premium food photography, free to hotlink. */

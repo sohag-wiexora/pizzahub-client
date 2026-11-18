@@ -61,7 +61,7 @@ The sign-in page has one-click prefill badges for these in mock mode.
 | UI | ShadCN UI (radix-nova) + Tailwind CSS v4 + Framer Motion |
 | Auth | Better Auth client (credentials + Google OAuth) with a mock fallback |
 | Payments | Stripe Checkout (vendor subscription only — customer ordering is Stripe-free) |
-| Uploads | ImgBB (menu photos & avatars) |
+| Uploads | ImgBB (via the backend — key stays server-side) |
 | Charts | Recharts |
 | Forms | React Hook Form + Zod |
 | Notifications | sonner toasts |
@@ -86,13 +86,13 @@ npm run build && npm start
 
 ### Environment Variables
 
+The frontend needs **exactly one** public variable:
+
 | Variable | Purpose |
 | --- | --- |
-| `NEXT_PUBLIC_USE_MOCK_DATA` | `true` → in-browser mock API; `false` → real Express API |
-| `NEXT_PUBLIC_API_BASE_URL` | Base URL of `pizzahub-server` (default `http://localhost:5000`) |
-| `NEXT_PUBLIC_BETTER_AUTH_URL` | Better Auth origin (defaults to API base) |
-| `NEXT_PUBLIC_IMGBB_API_KEY` | ImgBB key for image uploads |
-| `NEXT_PUBLIC_APP_URL` | This app's origin (OAuth callbacks) |
+| `NEXT_PUBLIC_API_URL` | Render backend origin (e.g. `https://pizzahub-server.onrender.com`). **Empty = demo mode** with the in-browser mock database. |
+
+Everything else — `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`, `MONGODB_URI`, Stripe secret key, Stripe webhook secret, ImgBB API key and `BETTER_AUTH_URL` — lives **only** in the backend `.env` on Render. No secret ever enters this bundle.
 
 `.env.local` is **never committed** (ignored by git); `.env.example` documents the shape.
 
@@ -128,10 +128,13 @@ Orders carry a `statusHistory` event log. `respondToOrder` only succeeds from `p
 ### 6. Stripe subscription (vendors only)
 `createCheckoutSession` asks the server for a Checkout Session bound to the **session's** vendor id (never a client-supplied one). Success/cancel redirects go to `/payment/success` / `/payment/cancel`, and premium is only activated by the server-side **Stripe webhook** — the success page merely displays state.
 
-### 7. Mock → Real API swap in one file
-All data flows through `src/lib/api-client.ts`. With `NEXT_PUBLIC_USE_MOCK_DATA=false` each exported function calls `${API_BASE_URL}/api/…` with credentials; the mock implements the identical contract (shape + status codes + business rules) so the backend can be attached without touching any component.
+### 7. Mock → Real API swap in one variable
+All data flows through `src/lib/api-client.ts`. When `NEXT_PUBLIC_API_URL` is empty the mock implements the full contract (shapes + status codes + business rules). Set it to the Render origin and every function calls `${NEXT_PUBLIC_API_URL}/api/…` with cookies instead — no component changes.
 
-### 8. Next 16 quirks handled
+### 8. Image uploads stay secret-free in the browser
+Menu photos and avatars are posted to the backend (`POST /api/uploads`); the server pushes them to **ImgBB** with the key from its own `.env` and returns the public URL. In demo mode the picked file is previewed locally as a data URL (`next/image` auto-unoptimizes data URLs), so the flow is complete without any API key on the client.
+
+### 9. Next 16 quirks handled
 - `params` / `searchParams` are **async** — awaited inside `<Suspense>` so Cache Components can still prerender
 - Runtime client hooks (`usePathname`) in layouts are Suspense-wrapped (partial prerendering)
 - `new Date()` at render time is blocked during prerender — moved to module scope
