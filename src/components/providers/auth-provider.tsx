@@ -44,6 +44,8 @@ interface AuthContextValue {
   signUp: (input: SignUpInput) => Promise<AuthAction>;
   signOut: () => Promise<void>;
   updateProfile: (input: ProfileUpdateInput) => Promise<AuthAction>;
+  /** Mock mode only — activates Premium after the demo checkout. Real mode relies on the Stripe webhook. */
+  activatePremium: () => AuthAction;
   demoAccounts: typeof demoCredentials;
 }
 
@@ -259,6 +261,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return { ok: true };
         }
         return handle(() => authClient.updateUser(input));
+      },
+      activatePremium: () => {
+        if (!isMock) {
+          // Real flow: the Stripe webhook confirms payment server-side.
+          return { ok: true };
+        }
+        if (!user) return { ok: false, message: "Not signed in" };
+        const expires = new Date();
+        expires.setMonth(expires.getMonth() + 1);
+        writeMockSession({
+          ...user,
+          subscriptionPlan: "premium",
+          subscriptionExpiresAt: expires.toISOString(),
+        });
+        return { ok: true };
       },
     }),
     [
