@@ -1,26 +1,222 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
+@custom-variant dark (&:is(.dark *));
+
+/* ------------------------------------------------------------------ */
+/* PizzaHub — Forest Noir × Champagne Gold × Warm Ivory                */
+/* ------------------------------------------------------------------ */
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-jakarta), ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-playfair), Georgia, serif;
+  --font-mono: ui-monospace, "SF Mono", monospace;
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+  --radius-3xl: calc(var(--radius) * 2.2);
+  --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* brand palette */
+  --color-forest: var(--forest);
+  --color-forest-deep: var(--forest-deep);
+  --color-forest-soft: var(--forest-soft);
+  --color-gold: var(--gold);
+  --color-gold-light: var(--gold-light);
+  --color-gold-soft: var(--gold-soft);
+  --color-ivory: var(--ivory);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+:root {
+  /* semantic tokens — light (Warm Ivory) */
+  --background: #faf6ec;
+  --foreground: #1a2b20;
+  --card: #fffdf6;
+  --card-foreground: #1a2b20;
+  --popover: #fffdf6;
+  --popover-foreground: #1a2b20;
+  --primary: #c9a24b;
+  --primary-foreground: #142a1e;
+  --secondary: #f1ebdd;
+  --secondary-foreground: #142a1e;
+  --muted: #f3eddf;
+  --muted-foreground: #6d7466;
+  --accent: #efe6cf;
+  --accent-foreground: #142a1e;
+  --destructive: #c0392b;
+  --border: #e5dcc7;
+  --input: #e5dcc7;
+  --ring: #c9a24b;
+  --chart-1: #c9a24b;
+  --chart-2: #7fa56b;
+  --chart-3: #142a1e;
+  --chart-4: #e8c87e;
+  --chart-5: #5c7355;
+  --radius: 0.75rem;
+  --sidebar: #0e1b13;
+  --sidebar-foreground: #e8e4d8;
+  --sidebar-primary: #c9a24b;
+  --sidebar-primary-foreground: #142a1e;
+  --sidebar-accent: #1b3a2a;
+  --sidebar-accent-foreground: #e8c87e;
+  --sidebar-border: rgba(201, 162, 75, 0.18);
+  --sidebar-ring: #c9a24b;
+
+  /* brand tokens */
+  --forest: #142a1e;
+  --forest-deep: #0e1b13;
+  --forest-soft: #1b3a2a;
+  --gold: #c9a24b;
+  --gold-light: #e8c87e;
+  --gold-soft: #f0dca8;
+  --ivory: #faf6ec;
+}
+
+.dark {
+  /* semantic tokens — dark (Forest Noir) */
+  --background: #0e1b13;
+  --foreground: #ede8da;
+  --card: #14241b;
+  --card-foreground: #ede8da;
+  --popover: #14241b;
+  --popover-foreground: #ede8da;
+  --primary: #d4af7a;
+  --primary-foreground: #0e1b13;
+  --secondary: #1b3a2a;
+  --secondary-foreground: #ede8da;
+  --muted: #1b2c21;
+  --muted-foreground: #a3ab9e;
+  --accent: #223c2c;
+  --accent-foreground: #e8c87e;
+  --destructive: #e05b4b;
+  --border: rgba(201, 162, 75, 0.16);
+  --input: rgba(201, 162, 75, 0.2);
+  --ring: #c9a24b;
+  --chart-1: #d4af7a;
+  --chart-2: #8fb877;
+  --chart-3: #e8c87e;
+  --chart-4: #5c7355;
+  --chart-5: #f0dca8;
+  --sidebar: #0b160f;
+  --sidebar-foreground: #e8e4d8;
+  --sidebar-primary: #d4af7a;
+  --sidebar-primary-foreground: #0e1b13;
+  --sidebar-accent: #1b3a2a;
+  --sidebar-accent-foreground: #e8c87e;
+  --sidebar-border: rgba(201, 162, 75, 0.14);
+  --sidebar-ring: #c9a24b;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+    text-rendering: optimizeLegibility;
+  }
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading tracking-tight text-foreground;
+  }
+  ::selection {
+    background: var(--gold);
+    color: var(--forest-deep);
+  }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--gold) 45%, transparent);
+    border-radius: 999px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--gold);
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@layer utilities {
+  /* champagne gold gradient text — used on headline accents */
+  .text-gradient-gold {
+    background: linear-gradient(
+      115deg,
+      #a8801f 0%,
+      #e8c87e 45%,
+      #c9a24b 70%,
+      #f0dca8 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  /* frosted navbar over the dark hero */
+  .glass-forest {
+    background: color-mix(in srgb, var(--forest-deep) 82%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+  }
+
+  /* subtle hairline used between premium sections */
+  .hairline-gold {
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--gold) 60%, transparent),
+      transparent
+    );
+    height: 1px;
+  }
+
+  /* soft luxury card lift */
+  .lift {
+    transition:
+      transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+      box-shadow 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+  }
+  .lift:hover {
+    transform: translateY(-6px);
+    box-shadow:
+      0 24px 48px -20px rgba(14, 27, 19, 0.28),
+      0 0 0 1px color-mix(in srgb, var(--gold) 30%, transparent) inset;
+  }
 }
