@@ -1,7 +1,6 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
-  /* config options here */
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {
@@ -11,6 +10,16 @@ const nextConfig: NextConfig = {
         as: "*.css",
       },
     },
+  },
+  images: {
+    remotePatterns: [
+      // Verified Unsplash photography used by the mock dataset
+      { protocol: "https", hostname: "images.unsplash.com" },
+      // ImgBB-hosted uploads (menu items & avatars)
+      { protocol: "https", hostname: "i.ibb.co" },
+      // Google OAuth avatars resolved by Better Auth
+      { protocol: "https", hostname: "lh3.googleusercontent.com" },
+    ],
   },
 };
 
