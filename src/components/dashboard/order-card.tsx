@@ -34,7 +34,7 @@ export function OrderCard({
   order: Order;
   onChanged?: () => void;
 }) {
-  const { user, isVendor, isCustomer } = useAuth();
+  const { user, isAdmin, isVendor, isCustomer } = useAuth();
   const [busy, setBusy] = useState(false);
   const [confirmAction, setConfirmAction] = useState<
     "accept" | "reject" | "cancel" | null
@@ -117,7 +117,11 @@ export function OrderCard({
             {order.item.itemName}
           </h3>
           <p className="text-xs text-muted-foreground">
-            ${order.item.price.toFixed(2)} · {order.item.category}
+            ${order.item.price.toFixed(2)} × {order.quantity ?? 1} ·{" "}
+            {order.item.category} ·{" "}
+            <span className="font-semibold text-foreground">
+              Total ${(order.item.price * (order.quantity ?? 1)).toFixed(2)}
+            </span>
           </p>
 
           <dl className="mt-2 grid gap-2 text-sm sm:grid-cols-2">
@@ -144,14 +148,15 @@ export function OrderCard({
           </dl>
 
           {/* parties */}
-          <div className="mt-1 text-xs text-muted-foreground">
-            {isVendor ? (
+          <div className="mt-1 grid gap-1 text-xs text-muted-foreground">
+            {isVendor || isAdmin ? (
               <p>
                 Customer:{" "}
                 <strong className="text-foreground">{order.customerName}</strong>{" "}
                 · {order.customerEmail}
               </p>
-            ) : (
+            ) : null}
+            {isCustomer || isAdmin ? (
               <p>
                 Vendor:{" "}
                 <strong className="text-foreground">
@@ -159,7 +164,7 @@ export function OrderCard({
                 </strong>{" "}
                 · {order.vendor.location}
               </p>
-            )}
+            ) : null}
           </div>
 
           {(canDecide || canCancel) && (

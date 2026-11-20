@@ -74,9 +74,32 @@ const writeMockSession = (user: AuthUser | null) => {
 };
 
 /** Seed password map for the demo accounts (mock mode only). */
-const MOCK_PASSWORDS: Record<string, string> = Object.fromEntries(
-  demoCredentials.map((c) => [c.email, c.password]),
-);
+const MOCK_PASSWORDS_KEY = "pizzahub:mock-passwords";
+
+const seedPasswords = (): Record<string, string> =>
+  Object.fromEntries(demoCredentials.map((c) => [c.email, c.password]));
+
+const readMockPasswords = (): Record<string, string> => {
+  const seed = seedPasswords();
+  if (typeof window === "undefined") return seed;
+  try {
+    const raw = localStorage.getItem(MOCK_PASSWORDS_KEY);
+    return { ...seed, ...(raw ? (JSON.parse(raw) as Record<string, string>) : {}) };
+  } catch {
+    return seed;
+  }
+};
+
+const saveMockPassword = (email: string, password: string) => {
+  try {
+    localStorage.setItem(
+      MOCK_PASSWORDS_KEY,
+      JSON.stringify({ ...readMockPasswords(), [email]: password }),
+    );
+  } catch {
+    /* storage unavailable — sign-in still works for this tab */
+  }
+};
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [mockUser, setMockUser] = useState<AuthUser | null>(null);
@@ -94,7 +117,29 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setMockLoading(false);
     const listener = () => setMockUser(readMockSession());
     window.addEventListener("pizzahub:auth-changed", listener);
-    return () => window.removeEventListener("pizzahub:auth-changed", listener);
+
+    /* keep the signed-in profile in sync with admin/premium changes */
+    const sync = () => {
+      const session = readMockSession();
+      if (!session) return;
+      const record = db.users().find((u) => u.id === session.id);
+      if (!record) return;
+      setMockUser({
+        ...session,
+        name: record.name,
+        image: record.image,
+        isBlocked: record.isBlocked,
+        businessName: record.businessName,
+        subscriptionPlan: record.subscriptionPlan,
+        subscriptionExpiresAt: record.subscriptionExpiresAt,
+      });
+    };
+    window.addEventListener("pizzahub:db-changed", sync);
+
+    return () => {
+      window.removeEventListener("pizzahub:auth-changed", listener);
+      window.removeEventListener("pizzahub:db-changed", sync);
+    };
   }, [isMock]);
 
   const user: AuthUser | null = useMemo(() => {
@@ -132,7 +177,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           message: "This account has been blocked. Contact support.",
         };
       }
-      const expected = MOCK_PASSWORDS[found.email];
+      const expected = readMockPasswords()[found.email];
       if (!expected || expected !== password) {
         return { ok: false, message: "Incorrect email or password." };
       }
@@ -223,6 +268,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
               businessName: input.role === "vendor" ? input.businessName : undefined,
               subscriptionPlan: "free",
             };
+            db.addUser({
+              ...newUser,
+              createdAt: new Date().toISOString(),
+            });
+            saveMockPassword(newUser.email, input.password);
             writeMockSession(newUser);
             return { ok: true };
           });
@@ -257,6 +307,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             name: input.name ?? user.name,
             image: input.image ?? user.image,
           };
+          db.updateUser(user.id, {
+            name: updated.name,
+            image: updated.image,
+          });
           writeMockSession(updated);
           return { ok: true };
         }
@@ -270,11 +324,28 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!user) return { ok: false, message: "Not signed in" };
         const expires = new Date();
         expires.setMonth(expires.getMonth() + 1);
-        writeMockSession({
+        const updated: AuthUser = {
           ...user,
           subscriptionPlan: "premium",
           subscriptionExpiresAt: expires.toISOString(),
+        };
+        db.updateUser(user.id, {
+          subscriptionPlan: "premium",
+          subscriptionExpiresAt: updated.subscriptionExpiresAt,
         });
+        db.addTransaction({
+          _id: `txn-${Date.now()}`,
+          vendorId: user.id,
+          vendorName: user.name,
+          vendorBusinessName: user.businessName ?? "",
+          plan: "premium",
+          amount: 29,
+          currency: "usd",
+          stripeSessionId: `cs_demo_${Date.now()}`,
+          status: "succeeded",
+          createdAt: new Date().toISOString(),
+        });
+        writeMockSession(updated);
         return { ok: true };
       },
     }),

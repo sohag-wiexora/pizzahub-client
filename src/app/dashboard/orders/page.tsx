@@ -6,13 +6,13 @@ import { useAuth } from "@/components/providers/auth-provider";
 
 export default function OrdersPage() {
   return (
-    <DashboardGate roles={["vendor", "customer"]}>
+    <DashboardGate roles={["vendor", "customer", "admin"]}>
       <OrdersRolePicker />
     </DashboardGate>
   );
 }
 
 function OrdersRolePicker() {
-  const { isVendor } = useAuth();
-  return <OrdersView perspective={isVendor ? "vendor" : "customer"} />;
+  const { user } = useAuth();
+  return <OrdersView perspective={user?.role ?? "customer"} />;
 }

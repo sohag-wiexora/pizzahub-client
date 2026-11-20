@@ -80,13 +80,28 @@ export function AdminItemsView() {
     debouncedLoad(search, status);
   }, [search, status, debouncedLoad]);
 
+  /* live refresh when another role (or another tab) changes the catalogue */
+  useEffect(() => {
+    const handler = () => debouncedLoad(search, status);
+    window.addEventListener("pizzahub:db-changed", handler);
+    return () => window.removeEventListener("pizzahub:db-changed", handler);
+  }, [debouncedLoad, search, status]);
+
+  /** Apply the fresh record and drop it when it no longer matches the filter. */
+  const applyUpdate = (updated: MenuItem) => {
+    setItems((prev) => {
+      if (!prev) return prev;
+      const matches = status === "all" || updated.status === status;
+      if (!matches) return prev.filter((i) => i._id !== updated._id);
+      return prev.map((i) => (i._id === updated._id ? updated : i));
+    });
+  };
+
   const moderate = async (item: MenuItem, next: "approved" | "rejected") => {
     setBusyId(item._id);
     try {
       const updated = await moderateMenuItem(item._id, next);
-      setItems((prev) =>
-        prev?.map((i) => (i._id === updated._id ? updated : i)) ?? null,
-      );
+      applyUpdate(updated);
       toast.success(
         next === "approved" ? "Item approved" : "Item rejected",
         {
@@ -111,9 +126,7 @@ export function AdminItemsView() {
       const next = item.status === "approved" ? "rejected" : "approved";
       // admins republish/inactive via the same moderation endpoint
       const updated = await moderateMenuItem(item._id, next);
-      setItems((prev) =>
-        prev?.map((i) => (i._id === updated._id ? updated : i)) ?? null,
-      );
+      applyUpdate(updated);
       toast.success(
         next === "approved" ? "Item republished" : "Item unpublished",
         { description: updated.itemName },

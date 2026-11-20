@@ -93,6 +93,8 @@ export interface Order {
   message?: string;
   status: OrderStatus;
   statusHistory: OrderStatusEvent[];
+  /** how many pizzas the customer ordered (defaults to 1) */
+  quantity?: number;
   createdAt: string;
   updatedAt: string;
 }
@@ -102,6 +104,7 @@ export interface OrderInput {
   deliveryDate: string;
   deliveryAddress: string;
   message?: string;
+  quantity?: number;
 }
 
 export interface Transaction {

@@ -62,6 +62,16 @@ export function VendorMenuItemsView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id]);
 
+  /* reflect admin approvals / other-tab edits instantly */
+  useEffect(() => {
+    if (!user || !isVendor) return;
+    const handler = () => {
+      getVendorMenuItems(user.id).then(setItems).catch(() => undefined);
+    };
+    window.addEventListener("pizzahub:db-changed", handler);
+    return () => window.removeEventListener("pizzahub:db-changed", handler);
+  }, [user, isVendor]);
+
   if (!user) return null;
 
   const activeCount = items?.filter((i) => i.status === "approved").length ?? 0;

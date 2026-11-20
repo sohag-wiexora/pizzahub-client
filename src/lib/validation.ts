@@ -67,6 +67,12 @@ export const orderSchema = z.object({
     .string()
     .min(10, "Give a complete delivery address (min 10 characters)"),
   message: z.string().max(300, "Message is too long").optional(),
+  quantity: z.coerce
+    .number()
+    .int("Quantity must be a whole number")
+    .min(1, "At least 1 pizza")
+    .max(20, "Maximum 20 pizzas per order")
+    .default(1),
 });
 
 export const reviewSchema = z.object({

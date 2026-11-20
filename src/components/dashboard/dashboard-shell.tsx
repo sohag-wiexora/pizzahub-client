@@ -58,6 +58,7 @@ function navFor(role: UserRole): NavItem[] {
     case "admin":
       return [
         { href: "/dashboard", label: "Overview", icon: LayoutDashboard },
+        { href: "/dashboard/orders", label: "All Orders", icon: ShoppingBag },
         { href: "/dashboard/users", label: "Manage Users", icon: Users },
         { href: "/dashboard/items", label: "Manage Menu Items", icon: ClipboardList },
         { href: "/dashboard/transactions", label: "Transactions", icon: Receipt },

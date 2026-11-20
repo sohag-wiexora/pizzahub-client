@@ -11,7 +11,6 @@ import {
   ShoppingBag,
   Store,
   Users,
-  Wallet,
   Ban,
   CheckCircle2,
   Hourglass,
@@ -259,15 +258,25 @@ function AdminOverview() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard icon={Users} label="Total Users" value={stats.totalUsers ?? 0} hint="All registered accounts" />
-        <StatCard icon={Store} label="Vendors" value={stats.totalVendors ?? 0} tone="neutral" />
-        <StatCard icon={Pizza} label="Menu Items" value={stats.totalMenuItems ?? 0} hint={`${stats.pendingMenuItems ?? 0} pending review`} />
         <StatCard
-          icon={Wallet}
-          label="Platform Revenue"
-          value={`$${(stats.revenue ?? 0).toFixed(2)}`}
+          icon={Users}
+          label="Total Users"
+          value={stats.totalUsers ?? 0}
+          hint={`${stats.totalCustomers ?? 0} customers registered`}
+        />
+        <StatCard icon={Store} label="Vendors" value={stats.totalVendors ?? 0} tone="neutral" />
+        <StatCard
+          icon={Pizza}
+          label="Menu Items"
+          value={stats.totalMenuItems ?? 0}
+          hint={`${stats.pendingMenuItems ?? 0} pending review`}
+        />
+        <StatCard
+          icon={ShoppingBag}
+          label="Total Orders"
+          value={stats.totalOrders ?? 0}
           tone="gold"
-          hint={`${stats.totalTransactions ?? 0} transactions`}
+          hint={`${stats.pendingOrders ?? 0} pending · $${(stats.revenue ?? 0).toFixed(2)} revenue`}
         />
       </div>
 
@@ -286,6 +295,12 @@ function AdminOverview() {
             Quick Actions
           </p>
           <QuickLink href="/dashboard/users" icon={Users} title="Manage Users" text="Block, unblock and filter" />
+          <QuickLink
+            href="/dashboard/orders"
+            icon={ShoppingBag}
+            title="All Orders"
+            text="Every order across the platform"
+          />
           <QuickLink
             href="/dashboard/items?status=pending"
             icon={ClipboardList}
