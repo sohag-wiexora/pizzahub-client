@@ -1,6 +1,6 @@
 # 🍕 PizzaHub — Premium Pizza Ordering & Delivery Platform
 
-A full-featured pizza ordering platform built with **Next.js 16 (App Router)**, **TypeScript**, **ShadCN UI**, **Framer Motion**, **Better Auth** and **Stripe** — styled with an exclusive **Forest Noir × Champagne Gold × Warm Ivory** design system.
+A full-featured pizza ordering platform built with **Next.js 16 (App Router)**, **TypeScript**, **ShadCN UI**, **Framer Motion**, **Better Auth** and **Stripe** — styled with an exclusive **Forest Green × Warm Gold × Cream** design system (primary `#102B24`, primary hover `#163A30`, secondary/gold `#D6B36A`, surface alt `#F1EBDD`, background `#FAF6EF`, text primary `#252923`, accent `#B94B35`). Typography: **Playfair Display** (display) + **Manrope** (UI/body).
 
 > **Assignment 9** — Role-based pizza platform for customers, restaurant (vendor) owners and admins.
 
