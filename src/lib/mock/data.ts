@@ -15,10 +15,10 @@ import type {
  */
 
 /** Unsplash helper — premium food photography, free to hotlink. */
-const img = (id: string, w = 900) =>
+const img = (id: string, w = 1000) =>
   `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
 
-export const HERO_IMAGE = img("photo-1571997478779-2adcbbe9ab2f", 1400);
+export const HERO_IMAGE = img("photo-1703473751398-789a58f27c3f", 1400);
 
 export const mockUsers: PizzaUser[] = [
   {
@@ -904,14 +904,166 @@ export const mockTestimonials = [
 /** Runtime mutation targets (deep-ish clones so seed data is never mutated). */
 const clone = <T,>(value: T): T => JSON.parse(JSON.stringify(value)) as T;
 
+/* ------------------------------------------------------------------ */
+/* Mutable demo store                                                  */
+/* ------------------------------------------------------------------ */
+/* Reads return deep clones (components can never corrupt the store).  */
+/* Writes go through the mutation helpers and are persisted to         */
+/* localStorage, so orders, approvals, new items and edits survive     */
+/* reloads and are visible to every role in the same browser.          */
+
+const STORAGE_KEY = "pizzahub:mock-db:v1";
+
+interface MockState {
+  users: PizzaUser[];
+  menuItems: MenuItem[];
+  orders: Order[];
+  transactions: Transaction[];
+  reviews: Review[];
+}
+
+const seedState = (): MockState => ({
+  users: clone(mockUsers),
+  menuItems: clone(mockMenuItems),
+  orders: clone(mockOrders),
+  transactions: clone(mockTransactions),
+  reviews: clone(mockReviews),
+});
+
+let state: MockState | null = null;
+
+function getState(): MockState {
+  if (state) return state;
+  if (typeof window === "undefined") {
+    state = seedState();
+    return state;
+  }
+  try {
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<MockState>;
+      const fresh = seedState();
+      state = {
+        users: parsed.users ?? fresh.users,
+        menuItems: parsed.menuItems ?? fresh.menuItems,
+        orders: parsed.orders ?? fresh.orders,
+        transactions: parsed.transactions ?? fresh.transactions,
+        reviews: parsed.reviews ?? fresh.reviews,
+      };
+      return state;
+    }
+  } catch {
+    /* corrupted storage → reseed below */
+  }
+  state = seedState();
+  return state;
+}
+
+function persist() {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(getState()));
+    window.dispatchEvent(new CustomEvent("pizzahub:db-changed"));
+  } catch {
+    /* storage full / disabled — the session still works in memory */
+  }
+}
+
 export const db = {
-  users: () => clone(mockUsers),
+  users: () => clone(getState().users),
   vendors: () => Object.values(clone(vendors)),
-  menuItems: () => clone(mockMenuItems),
-  orders: () => clone(mockOrders),
-  transactions: () => clone(mockTransactions),
-  reviews: () => clone(mockReviews),
+  menuItems: () => clone(getState().menuItems),
+  orders: () => clone(getState().orders),
+  transactions: () => clone(getState().transactions),
+  reviews: () => clone(getState().reviews),
   testimonials: () => clone(mockTestimonials),
+
+  /* ---------------------------- writes ---------------------------- */
+
+  addMenuItem(item: MenuItem): MenuItem {
+    getState().menuItems.unshift(clone(item));
+    persist();
+    return clone(item);
+  },
+
+  updateMenuItem(id: string, patch: Partial<MenuItem>): MenuItem | undefined {
+    const list = getState().menuItems;
+    const index = list.findIndex((i) => i._id === id);
+    if (index < 0) return undefined;
+    list[index] = { ...list[index], ...clone(patch) };
+    persist();
+    return clone(list[index]);
+  },
+
+  removeMenuItem(id: string): boolean {
+    const list = getState().menuItems;
+    const index = list.findIndex((i) => i._id === id);
+    if (index < 0) return false;
+    list.splice(index, 1);
+    persist();
+    return true;
+  },
+
+  addOrder(order: Order): Order {
+    getState().orders.unshift(clone(order));
+    persist();
+    return clone(order);
+  },
+
+  updateOrder(id: string, patch: Partial<Order>): Order | undefined {
+    const list = getState().orders;
+    const index = list.findIndex((o) => o._id === id);
+    if (index < 0) return undefined;
+    list[index] = { ...list[index], ...clone(patch) };
+    persist();
+    return clone(list[index]);
+  },
+
+  addReview(review: Review): Review {
+    const store = getState();
+    store.reviews.unshift(clone(review));
+    // keep the item's aggregate rating in sync (as the real API would)
+    const item = store.menuItems.find((i) => i._id === review.itemId);
+    if (item) {
+      const itemReviews = store.reviews.filter((r) => r.itemId === review.itemId);
+      item.reviewCount = itemReviews.length;
+      item.rating =
+        Math.round(
+          (itemReviews.reduce((sum, r) => sum + r.rating, 0) /
+            itemReviews.length) *
+            10,
+        ) / 10;
+    }
+    persist();
+    return clone(review);
+  },
+
+  updateUser(id: string, patch: Partial<PizzaUser>): PizzaUser | undefined {
+    const list = getState().users;
+    const index = list.findIndex((u) => u.id === id);
+    if (index < 0) return undefined;
+    list[index] = { ...list[index], ...clone(patch) };
+    persist();
+    return clone(list[index]);
+  },
+
+  addUser(user: PizzaUser): PizzaUser {
+    getState().users.push(clone(user));
+    persist();
+    return clone(user);
+  },
+
+  addTransaction(transaction: Transaction): Transaction {
+    getState().transactions.unshift(clone(transaction));
+    persist();
+    return clone(transaction);
+  },
+
+  /** Wipe demo mutations and return to the original seed dataset. */
+  reset(): void {
+    state = seedState();
+    persist();
+  },
 };
 
 /** Demo accounts surfaced on the sign-in page (mock mode only). */

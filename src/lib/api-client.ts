@@ -171,7 +171,7 @@ export async function createMenuItem(
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    return item;
+    return db.addMenuItem(item);
   }
   return request<MenuItem>("/api/menu-items", {
     method: "POST",
@@ -191,7 +191,14 @@ export async function updateMenuItem(
     if (item.vendorId !== vendorId) {
       throw new ApiError("You can only edit your own items.", 403);
     }
-    return { ...item, ...input, updatedAt: new Date().toISOString() };
+    const updated = db.updateMenuItem(id, {
+      ...input,
+      // edited items go back to admin review, exactly like the REST API
+      status: "pending",
+      updatedAt: new Date().toISOString(),
+    });
+    if (!updated) throw new ApiError("Menu item not found", 404);
+    return updated;
   }
   return request<MenuItem>(`/api/menu-items/${id}`, {
     method: "PATCH",
@@ -207,6 +214,7 @@ export async function deleteMenuItem(id: string, vendorId: string): Promise<void
     if (item.vendorId !== vendorId) {
       throw new ApiError("You can only delete your own items.", 403);
     }
+    db.removeMenuItem(id);
     return;
   }
   await request<void>(`/api/menu-items/${id}`, { method: "DELETE" });
@@ -239,7 +247,12 @@ export async function setMenuItemAvailability(
         403,
       );
     }
-    return { ...item, status: active ? "approved" : "inactive" };
+    const updated = db.updateMenuItem(id, {
+      status: active ? "approved" : "inactive",
+      updatedAt: new Date().toISOString(),
+    });
+    if (!updated) throw new ApiError("Menu item not found", 404);
+    return updated;
   }
   return request<MenuItem>(`/api/menu-items/${id}/availability`, {
     method: "PATCH",
@@ -288,7 +301,7 @@ export async function createOrder(
       );
     }
     const now = new Date().toISOString();
-    return {
+    const order: Order = {
       _id: `ord-${Date.now()}`,
       itemId: item._id,
       item: {
@@ -307,11 +320,13 @@ export async function createOrder(
       deliveryDate: input.deliveryDate,
       deliveryAddress: input.deliveryAddress,
       message: input.message,
+      quantity: input.quantity ?? 1,
       status: "pending",
       statusHistory: [{ status: "pending", at: now }],
       createdAt: now,
       updatedAt: now,
     };
+    return db.addOrder(order);
   }
   return request<Order>("/api/orders", {
     method: "POST",
@@ -339,6 +354,19 @@ export async function getOrdersForUser(user: {
   return request<Order[]>(
     user.role === "vendor" ? "/api/orders/vendor" : "/api/orders/customer",
   );
+}
+
+export async function getAllOrders(): Promise<Order[]> {
+  if (USE_MOCK_DATA) {
+    await delay();
+    return db
+      .orders()
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+  }
+  return request<Order[]>("/api/admin/orders");
 }
 
 export async function getOrderByVendor(
@@ -373,12 +401,13 @@ export async function respondToOrder(
     }
     const now = new Date().toISOString();
     const status: OrderStatus = action === "accept" ? "accepted" : "rejected";
-    return {
-      ...order,
+    const updated = db.updateOrder(orderId, {
       status,
       statusHistory: [...order.statusHistory, { status, at: now }],
       updatedAt: now,
-    };
+    });
+    if (!updated) throw new ApiError("Order not found", 404);
+    return updated;
   }
   return request<Order>(`/api/orders/${orderId}/status`, {
     method: "PATCH",
@@ -404,12 +433,13 @@ export async function cancelOrder(
       );
     }
     const now = new Date().toISOString();
-    return {
-      ...order,
+    const updated = db.updateOrder(orderId, {
       status: "cancelled",
       statusHistory: [...order.statusHistory, { status: "cancelled", at: now }],
       updatedAt: now,
-    };
+    });
+    if (!updated) throw new ApiError("Order not found", 404);
+    return updated;
   }
   return request<Order>(`/api/orders/${orderId}/cancel`, { method: "PATCH" });
 }
@@ -439,7 +469,7 @@ export async function addReview(
 ): Promise<Review> {
   if (USE_MOCK_DATA) {
     await delay(500);
-    return {
+    const review: Review = {
       _id: `rev-${Date.now()}`,
       itemId,
       customerId: user.id,
@@ -448,6 +478,7 @@ export async function addReview(
       ...input,
       createdAt: new Date().toISOString(),
     };
+    return db.addReview(review);
   }
   return request<Review>(`/api/menu-items/${itemId}/reviews`, {
     method: "POST",
@@ -505,7 +536,7 @@ function monthlyRevenue(orders: Order[]) {
     const d = new Date(order.createdAt);
     const key = `${d.getFullYear()}-${d.getMonth()}`;
     const bucket = buckets.get(key) ?? { revenue: 0, orders: 0 };
-    bucket.revenue += order.item.price;
+    bucket.revenue += order.item.price * (order.quantity ?? 1);
     bucket.orders += 1;
     buckets.set(key, bucket);
   }
@@ -576,6 +607,10 @@ export async function getAdminStats(): Promise<DashboardStats> {
       totalCustomers: users.filter((u) => u.role === "customer").length,
       totalMenuItems: db.menuItems().length,
       pendingMenuItems: db.menuItems().filter((i) => i.status === "pending").length,
+      totalOrders: orders.length,
+      pendingOrders: orders.filter((o) => o.status === "pending").length,
+      acceptedOrders: orders.filter((o) => o.status === "accepted").length,
+      rejectedOrders: orders.filter((o) => o.status === "rejected").length,
       totalTransactions: db.transactions().length,
       revenue: Math.round(revenue * 100) / 100,
       monthlyRevenue: monthlyRevenue(orders),
@@ -624,7 +659,9 @@ export async function setUserBlocked(
     if (user.role === "admin") {
       throw new ApiError("Admin accounts cannot be blocked.", 403);
     }
-    return { ...user, isBlocked };
+    const updated = db.updateUser(userId, { isBlocked });
+    if (!updated) throw new ApiError("User not found", 404);
+    return updated;
   }
   return request<PizzaUser>(`/api/users/${userId}/block`, {
     method: "PATCH",
@@ -668,7 +705,12 @@ export async function moderateMenuItem(
     await delay(450);
     const item = db.menuItems().find((i) => i._id === itemId);
     if (!item) throw new ApiError("Menu item not found", 404);
-    return { ...item, status, updatedAt: new Date().toISOString() };
+    const updated = db.updateMenuItem(itemId, {
+      status,
+      updatedAt: new Date().toISOString(),
+    });
+    if (!updated) throw new ApiError("Menu item not found", 404);
+    return updated;
   }
   return request<MenuItem>(`/api/admin/menu-items/${itemId}/status`, {
     method: "PATCH",
@@ -679,6 +721,9 @@ export async function moderateMenuItem(
 export async function adminDeleteMenuItem(itemId: string): Promise<void> {
   if (USE_MOCK_DATA) {
     await delay(400);
+    if (!db.removeMenuItem(itemId)) {
+      throw new ApiError("Menu item not found", 404);
+    }
     return;
   }
   await request<void>(`/api/admin/menu-items/${itemId}`, { method: "DELETE" });
