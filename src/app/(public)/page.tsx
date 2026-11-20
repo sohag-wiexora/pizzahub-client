@@ -2,7 +2,13 @@ import type { Metadata } from "next";
 import { Hero } from "@/components/home/hero";
 import { FeaturedItems } from "@/components/home/featured-items";
 import { PizzaCategories } from "@/components/home/categories";
-import { WhyChoose, Testimonials, CtaBanner } from "@/components/home/sections";
+import {
+  HowItWorks,
+  PartnerBanner,
+  Testimonials,
+  CtaBanner,
+  WhyChoose,
+} from "@/components/home/sections";
 
 export const metadata: Metadata = {
   title: "PizzaHub — Hot & Fresh Pizza Delivered to Your Door",
@@ -16,7 +22,9 @@ export default function HomePage() {
       <Hero />
       <FeaturedItems />
       <PizzaCategories />
+      <HowItWorks />
       <WhyChoose />
+      <PartnerBanner />
       <Testimonials />
       <CtaBanner />
     </>

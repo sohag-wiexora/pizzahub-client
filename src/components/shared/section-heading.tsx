@@ -28,7 +28,7 @@ export function SectionHeading({
         className,
       )}
     >
-      <span className="inline-flex items-center gap-2 rounded-full border border-gold/40 bg-gold/10 px-4 py-1 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-gold">
+      <span className="inline-flex items-center gap-2 rounded-full border border-gold/50 bg-gold/10 px-4 py-1 text-[0.7rem] font-bold uppercase tracking-[0.22em] text-[#8a6a2f] dark:text-gold-light">
         {kicker}
       </span>
       <h2

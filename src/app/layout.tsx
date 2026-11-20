@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Playfair_Display, Plus_Jakarta_Sans } from "next/font/google";
+import { Playfair_Display, Manrope } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/components/providers/auth-provider";
 import { ThemeProvider } from "@/components/providers/theme-provider";
@@ -11,8 +11,8 @@ const playfair = Playfair_Display({
   display: "swap",
 });
 
-const jakarta = Plus_Jakarta_Sans({
-  variable: "--font-jakarta",
+const manrope = Manrope({
+  variable: "--font-manrope",
   subsets: ["latin"],
   display: "swap",
 });
@@ -34,7 +34,7 @@ export default function RootLayout({
       lang="en"
       suppressHydrationWarning
       data-scroll-behavior="smooth"
-      className={`${playfair.variable} ${jakarta.variable} h-full`}
+      className={`${playfair.variable} ${manrope.variable} h-full`}
     >
       <body className="flex min-h-full flex-col">
         <ThemeProvider>

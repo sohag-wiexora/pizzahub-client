@@ -25,7 +25,7 @@ export function MenuItemCard({
   return (
     <article
       className={cn(
-        "lift group flex h-full flex-col overflow-hidden rounded-2xl border border-border/70 bg-card",
+        "lift group flex h-full flex-col overflow-hidden rounded-[16px] border border-border bg-card",
         className,
       )}
     >
@@ -58,7 +58,7 @@ export function MenuItemCard({
             className={cn(
               "absolute bottom-3 right-3 flex size-9 items-center justify-center rounded-full backdrop-blur transition-colors",
               isFavorite
-                ? "bg-red-500 text-white"
+                ? "bg-terracotta text-white"
                 : "bg-forest-deep/60 text-ivory hover:bg-forest-deep/80",
             )}
           >
@@ -72,7 +72,7 @@ export function MenuItemCard({
           <h3 className="font-heading text-lg font-semibold leading-snug">
             {item.itemName}
           </h3>
-          <span className="whitespace-nowrap font-heading text-lg font-bold text-gold">
+          <span className="whitespace-nowrap font-heading text-lg font-bold text-primary">
             ${item.price.toFixed(2)}
           </span>
         </div>

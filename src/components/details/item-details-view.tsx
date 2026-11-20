@@ -185,7 +185,7 @@ function DetailsBody({ id }: { id: string }) {
                   ({item.reviewCount} reviews)
                 </span>
               </span>
-              <span className="font-heading text-3xl font-bold text-gold">
+              <span className="font-heading text-3xl font-bold text-primary">
                 ${item.price.toFixed(2)}
               </span>
             </div>
@@ -219,7 +219,7 @@ function DetailsBody({ id }: { id: string }) {
                 onClick={() => setOrderOpen(true)}
                 className="h-12 flex-1 rounded-full bg-gold px-8 text-base text-forest-deep hover:bg-gold-light sm:flex-none"
               >
-                <ShoppingBag className="size-5" /> Order This Item
+                <ShoppingBag className="size-5" /> Order Now
               </Button>
               <Button
                 variant="outline"

@@ -56,7 +56,7 @@ export function Hero() {
 
           <motion.h1
             {...fade(0.1)}
-            className="font-heading text-[2.6rem] font-bold leading-[1.08] sm:text-6xl lg:text-[4.2rem]"
+            className="font-heading text-[2.6rem] font-bold leading-[1.08] text-ivory sm:text-6xl lg:text-[4.2rem]"
           >
             Hot &amp; Fresh Pizza{" "}
             <span className="text-gradient-gold">Delivered to Your Door</span>

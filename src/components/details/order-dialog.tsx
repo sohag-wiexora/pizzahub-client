@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { CalendarDays, Loader2, MapPin, MessageSquareText } from "lucide-react";
+import { CalendarDays, Loader2, MapPin, MessageSquareText, Minus, Plus } from "lucide-react";
 import { toast } from "sonner";
 import type { MenuItem, Order } from "@/types";
 import { createOrder } from "@/lib/api-client";
@@ -37,6 +37,7 @@ export function OrderDialog({
   const [deliveryDate, setDeliveryDate] = useState("");
   const [deliveryAddress, setDeliveryAddress] = useState("");
   const [message, setMessage] = useState("");
+  const [quantity, setQuantity] = useState(1);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
 
@@ -51,6 +52,7 @@ export function OrderDialog({
       deliveryDate,
       deliveryAddress,
       message: message || undefined,
+      quantity,
     });
     if (!parsed.success) {
       const fieldErrors: Record<string, string> = {};
@@ -68,14 +70,16 @@ export function OrderDialog({
         deliveryDate: parsed.data.deliveryDate,
         deliveryAddress: parsed.data.deliveryAddress,
         message: parsed.data.message,
+        quantity: parsed.data.quantity,
       });
       toast.success("Order placed successfully!", {
-        description: `Order for ${order.item.itemName} on ${order.deliveryDate} is pending vendor confirmation.`,
+        description: `${parsed.data.quantity} × ${order.item.itemName} for ${order.deliveryDate} — pending vendor confirmation.`,
       });
       onOpenChange(false);
       setDeliveryDate("");
       setDeliveryAddress("");
       setMessage("");
+      setQuantity(1);
     } catch (err: unknown) {
       toast.error("Could not place the order", {
         description:
@@ -100,6 +104,43 @@ export function OrderDialog({
         </DialogHeader>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div className="flex items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 p-3">
+            <div>
+              <p className="text-sm font-semibold">Quantity</p>
+              <p className="text-xs text-muted-foreground">
+                ${item.price.toFixed(2)} per pizza
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Decrease quantity"
+                onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                disabled={quantity <= 1}
+              >
+                <Minus className="size-4" />
+              </Button>
+              <span
+                aria-live="polite"
+                className="w-8 text-center font-heading text-lg font-bold"
+              >
+                {quantity}
+              </span>
+              <Button
+                type="button"
+                variant="outline"
+                size="icon-sm"
+                aria-label="Increase quantity"
+                onClick={() => setQuantity((q) => Math.min(20, q + 1))}
+                disabled={quantity >= 20}
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+
           <div className="flex flex-col gap-1.5">
             <Label htmlFor="delivery-date" className="gap-1">
               <CalendarDays className="size-3.5 text-gold" /> Delivery Date
@@ -159,14 +200,14 @@ export function OrderDialog({
           <Button
             type="submit"
             disabled={submitting}
-            className="h-11 rounded-full bg-gold text-forest-deep hover:bg-gold-light"
+            className="h-12 rounded-lg"
           >
             {submitting ? (
               <>
                 <Loader2 className="size-4 animate-spin" /> Placing order…
               </>
             ) : (
-              "Confirm Order"
+              <>Confirm Order · ${(item.price * quantity).toFixed(2)}</>
             )}
           </Button>
         </form>

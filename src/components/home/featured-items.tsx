@@ -64,7 +64,7 @@ export function FeaturedItems() {
   );
 
   return (
-    <section id="featured" className="bg-ivory py-20 lg:py-24">
+    <section id="featured" className="bg-background py-20 lg:py-24">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-6 md:flex-row md:items-end">
           <SectionHeading
