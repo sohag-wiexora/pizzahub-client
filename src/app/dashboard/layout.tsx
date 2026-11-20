@@ -8,6 +8,10 @@ export const metadata: Metadata = {
   description: "Your PizzaHub role-based dashboard.",
 };
 
+// Dashboard content is client-gated (auth + role) and loads via client-side
+// effects — not part of the instant-navigation static shell contract.
+export const instant = false;
+
 export default function DashboardLayout({
   children,
 }: {
