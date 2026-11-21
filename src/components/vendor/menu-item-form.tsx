@@ -33,10 +33,10 @@ export function MenuItemForm({ item }: { item?: MenuItem }) {
   const isEdit = Boolean(item);
 
   const [itemName, setItemName] = useState(item?.itemName ?? "");
-  const [category, setCategory] = useState(item?.category ?? "");
+  const [category, setCategory] = useState<string>(item?.category ?? PIZZA_CATEGORIES[0]);
   const [description, setDescription] = useState(item?.description ?? "");
   const [price, setPrice] = useState(item ? String(item.price) : "");
-  const [location, setLocation] = useState(item?.location ?? "");
+  const [location, setLocation] = useState<string>(item?.location ?? LOCATIONS[0]);
   const [images, setImages] = useState<string[]>(item?.images ?? []);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
@@ -143,7 +143,7 @@ export function MenuItemForm({ item }: { item?: MenuItem }) {
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="flex flex-col gap-1.5">
             <Label>Category</Label>
-            <Select value={category || undefined} onValueChange={setCategory}>
+            <Select value={category} onValueChange={setCategory}>
               <SelectTrigger className="h-11 rounded-xl" aria-label="Select category">
                 <SelectValue placeholder="Select a category" />
               </SelectTrigger>
@@ -194,7 +194,7 @@ export function MenuItemForm({ item }: { item?: MenuItem }) {
 
         <div className="flex flex-col gap-1.5">
           <Label>Location (area / city)</Label>
-          <Select value={location || undefined} onValueChange={setLocation}>
+          <Select value={location} onValueChange={setLocation}>
             <SelectTrigger className="h-11 rounded-xl" aria-label="Select location">
               <SelectValue placeholder="Select your service area" />
             </SelectTrigger>

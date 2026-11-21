@@ -15,7 +15,7 @@ import type {
   Transaction,
   UserRole,
 } from "@/types";
-import { API_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
+import { API_BASE_URL, AUTH_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
 import { db } from "@/lib/mock/data";
 
 /**
@@ -38,20 +38,289 @@ export class ApiError extends Error {
 const delay = (ms = 350 + Math.random() * 450) =>
   new Promise((resolve) => setTimeout(resolve, ms));
 
-/** fetch wrapper for the real backend (cookie auth included automatically). */
+/**
+ * Better Auth issues a JWT for the signed-in session. The Express API
+ * verifies that JWT (`Authorization: Bearer …`) on every protected route, so
+ * the httpOnly session cookie alone is not enough.
+ */
+let authToken: { value: string; expiresAt: number } | null = null;
+
+/** Clears the cached JWT (call after sign-in / sign-out). */
+export function clearAuthToken(): void {
+  authToken = null;
+}
+
+async function getAuthToken(forceRefresh = false): Promise<string | null> {
+  if (USE_MOCK_DATA) return null;
+  if (!forceRefresh && authToken && authToken.expiresAt > Date.now()) {
+    return authToken.value;
+  }
+
+  try {
+    const res = await fetch(`${AUTH_BASE_URL}/api/auth/token`, {
+      credentials: "include",
+      headers: { Accept: "application/json" },
+    });
+    if (!res.ok) {
+      authToken = null;
+      return null;
+    }
+
+    const body = (await res.json().catch(() => null)) as {
+      token?: string;
+    } | null;
+    if (!body?.token) {
+      authToken = null;
+      return null;
+    }
+
+    // The JWT itself lives longer; the short cache just keeps role and
+    // subscription changes visible without hitting /token on every request.
+    authToken = { value: body.token, expiresAt: Date.now() + 4 * 60 * 1000 };
+    return body.token;
+  } catch {
+    return null;
+  }
+}
+
+/** Fetch wrapper for the real backend (cookie + Bearer JWT auth). */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...init?.headers },
-    ...init,
-  });
+  // All REST API routes use /api/v1 on the Express backend.
+  const apiPath = path.replace(/^\/api\//, "/api/v1/");
+
+  const send = (token: string | null) =>
+    fetch(`${API_BASE_URL}${apiPath}`, {
+      ...init,
+      credentials: "include",
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init?.headers,
+      },
+    });
+
+  let res = await send(await getAuthToken());
+
+  // Expired/rotated token → fetch a fresh one and retry once.
+  if (res.status === 401) {
+    res = await send(await getAuthToken(true));
+  }
+
   if (res.status === 204) return undefined as T;
+
   const body = await res.json().catch(() => null);
+
   if (!res.ok) {
     throw new ApiError(body?.message ?? "Request failed", res.status);
   }
+
   return (body?.data ?? body) as T;
 }
+
+/** Vendor document the Express API embeds when it populates `vendorId`. */
+type ApiVendor = {
+  _id?: string;
+  id?: string;
+  name?: string;
+  email?: string;
+  businessName?: string | null;
+  image?: string | null;
+  subscriptionPlan?: string;
+  isPremium?: boolean;
+  rating?: number;
+};
+
+type ApiMenuItem = Omit<Partial<MenuItem>, "vendorId" | "vendor"> & {
+  vendorId?: string | ApiVendor;
+  vendor?: ApiVendor;
+};
+
+/**
+ * The Express API returns a populated `vendorId` (not a nested `vendor`) and
+ * has no rating counters on older documents. Normalise both shapes here so
+ * every component can keep using the `MenuItem` type.
+ */
+function toMenuItem(raw: ApiMenuItem): MenuItem {
+  const populated =
+    raw.vendor ??
+    (typeof raw.vendorId === "object" && raw.vendorId ? raw.vendorId : undefined);
+  const vendorId =
+    typeof raw.vendorId === "object"
+      ? (raw.vendorId?._id ?? raw.vendorId?.id ?? "")
+      : (raw.vendorId ?? "");
+
+  return {
+    ...(raw as MenuItem),
+    _id: String(raw._id ?? ""),
+    vendorId: String(vendorId),
+    vendor: {
+      id: String(populated?._id ?? populated?.id ?? vendorId),
+      name: populated?.name ?? "",
+      businessName: populated?.businessName ?? populated?.name ?? "",
+      location: raw.location ?? "",
+      image: populated?.image ?? undefined,
+      isPremium:
+        populated?.isPremium === true ||
+        populated?.subscriptionPlan === "premium",
+      rating: populated?.rating ?? raw.rating ?? 0,
+    },
+    rating: raw.rating ?? 0,
+    reviewCount: raw.reviewCount ?? 0,
+  };
+}
+
+type ApiOrder = {
+  _id?: string;
+  itemId?: string | ApiMenuItem;
+  vendorId?: string | ApiVendor;
+  customerId?: string | ApiVendor;
+  deliveryDate?: string;
+  deliveryAddress?: string;
+  message?: string;
+  quantity?: number;
+  status?: OrderStatus;
+  statusHistory?: { status: OrderStatus; at: string }[];
+  createdAt?: string;
+  updatedAt?: string;
+  customerName?: string;
+  customerEmail?: string;
+  customerImage?: string;
+};
+
+/**
+ * The Express API populates `itemId`, `vendorId` and `customerId` and keeps
+ * the status history implicit, while the UI expects nested summaries and a
+ * timeline. Normalise it once here.
+ */
+function toOrder(raw: ApiOrder): Order {
+  const itemDoc = typeof raw.itemId === "object" ? raw.itemId : undefined;
+  const vendorDoc = typeof raw.vendorId === "object" ? raw.vendorId : undefined;
+  const customerDoc =
+    typeof raw.customerId === "object" ? raw.customerId : undefined;
+
+  const itemId =
+    typeof raw.itemId === "object"
+      ? String(raw.itemId?._id ?? "")
+      : String(raw.itemId ?? "");
+  const vendorId =
+    typeof raw.vendorId === "object"
+      ? String(raw.vendorId?._id ?? "")
+      : String(raw.vendorId ?? "");
+  const customerId =
+    typeof raw.customerId === "object"
+      ? String(raw.customerId?._id ?? "")
+      : String(raw.customerId ?? "");
+
+  const status = raw.status ?? "pending";
+
+  return {
+    _id: String(raw._id ?? ""),
+    itemId,
+    item: {
+      _id: itemId,
+      itemName: itemDoc?.itemName ?? "",
+      images: itemDoc?.images ?? [],
+      price: itemDoc?.price ?? 0,
+      category: itemDoc?.category ?? "",
+    },
+    vendorId,
+    vendor: {
+      id: vendorId,
+      name: vendorDoc?.name ?? "",
+      businessName: vendorDoc?.businessName ?? vendorDoc?.name ?? "",
+      location: itemDoc?.location ?? "",
+      image: vendorDoc?.image ?? undefined,
+      isPremium:
+        vendorDoc?.isPremium === true ||
+        vendorDoc?.subscriptionPlan === "premium",
+      rating: vendorDoc?.rating ?? 0,
+    },
+    customerId,
+    customerName: customerDoc?.name ?? raw.customerName ?? "",
+    customerEmail: customerDoc?.email ?? raw.customerEmail ?? "",
+    customerImage: customerDoc?.image ?? raw.customerImage ?? undefined,
+    deliveryDate: raw.deliveryDate ?? "",
+    deliveryAddress: raw.deliveryAddress ?? "",
+    message: raw.message ?? "",
+    quantity: raw.quantity ?? 1,
+    status,
+    statusHistory:
+      raw.statusHistory && raw.statusHistory.length > 0
+        ? raw.statusHistory
+        : [{ status, at: raw.createdAt ?? new Date().toISOString() }],
+    createdAt: raw.createdAt ?? "",
+    updatedAt: raw.updatedAt ?? "",
+  };
+}
+
+type ApiDashboardStats = {
+  stats?: {
+    totalMenuItems?: number;
+    activeMenuItems?: number;
+    pendingOrders?: number;
+    acceptedOrders?: number;
+    rejectedOrders?: number;
+    cancelledOrders?: number;
+    totalOrders?: number;
+    totalUsers?: number;
+    totalVendors?: number;
+    totalCustomers?: number;
+    pendingMenuItems?: number;
+    totalTransactions?: number;
+    revenue?: number;
+  };
+  subscription?: { plan?: string; isPremiumActive?: boolean; expiresAt?: string };
+  salesOverview?: { label: string; total: number }[];
+  orderOverview?: { label: string; total: number }[];
+  platformAnalytics?: {
+    usersPerMonth?: { label: string; total: number }[];
+    ordersPerMonth?: { label: string; total: number }[];
+    revenuePerMonth?: { label: string; total: number }[];
+  };
+};
+
+/**
+ * The Express API wraps dashboard data in `stats` / `orderOverview` /
+ * `salesOverview` / `platformAnalytics`, while the UI consumes a flat
+ * `DashboardStats` object. Normalise the shapes here.
+ */
+function toDashboardStats(raw: ApiDashboardStats): DashboardStats {
+  const stats = raw?.stats ?? {};
+  const monthlyRevenue: DashboardStats["monthlyRevenue"] = [
+    ...(raw.salesOverview ?? []),
+    ...(raw.orderOverview ?? []),
+    ...(raw.platformAnalytics?.ordersPerMonth ?? []),
+  ].map((b) => ({ month: b.label, revenue: 0, orders: b.total }));
+
+  const out: DashboardStats = {
+    totalMenuItems: stats.totalMenuItems,
+    activeMenuItems: stats.activeMenuItems,
+    pendingOrders: stats.pendingOrders,
+    acceptedOrders: stats.acceptedOrders,
+    rejectedOrders: stats.rejectedOrders,
+    cancelledOrders: stats.cancelledOrders,
+    totalOrders: stats.totalOrders,
+    totalUsers: stats.totalUsers,
+    totalVendors: stats.totalVendors,
+    totalCustomers: stats.totalCustomers,
+    pendingMenuItems: stats.pendingMenuItems,
+    totalTransactions: stats.totalTransactions,
+    revenue: stats.revenue,
+    monthlyRevenue,
+    subscriptionPlan: raw.subscription?.plan as DashboardStats["subscriptionPlan"],
+    subscriptionExpiresAt: raw.subscription?.expiresAt ?? undefined,
+  };
+
+  // Admin platform analytics: pull the totals out of the monthly buckets.
+  if (raw.platformAnalytics) {
+    out.totalUsers = out.totalUsers ?? raw.platformAnalytics.usersPerMonth?.reduce((sum, u) => sum + (u.total ?? 0), 0) ?? 0;
+    out.totalOrders = out.totalOrders ?? raw.platformAnalytics.ordersPerMonth?.reduce((sum, o) => sum + (o.total ?? 0), 0) ?? 0;
+    out.revenue = (raw.platformAnalytics.revenuePerMonth ?? []).reduce((sum, r) => sum + (r.total ?? 0), 0) || stats.revenue;
+  }
+
+  return out;
+}
+
 
 /* ------------------------------------------------------------------ */
 /* Menu items                                                          */
@@ -64,7 +333,8 @@ export async function getFeaturedMenuItems(): Promise<MenuItem[]> {
     await delay();
     return db.menuItems().filter(isPublicItem).slice(0, 6);
   }
-  return request<MenuItem[]>("/api/menu-items/featured");
+  const items = await request<ApiMenuItem[]>("/api/menu-items/featured");
+  return items.map(toMenuItem);
 }
 
 export async function getMenuItems(
@@ -104,7 +374,8 @@ export async function getMenuItems(
   const qs = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v) as [string, string][],
   ).toString();
-  return request<MenuItem[]>(`/api/menu-items?${qs}`);
+  const items = await request<ApiMenuItem[]>(`/api/menu-items?${qs}`);
+  return items.map(toMenuItem);
 }
 
 export async function getMenuItemById(id: string): Promise<MenuItem> {
@@ -116,7 +387,7 @@ export async function getMenuItemById(id: string): Promise<MenuItem> {
     }
     return item;
   }
-  return request<MenuItem>(`/api/menu-items/${id}`);
+  return toMenuItem(await request<ApiMenuItem>(`/api/menu-items/${id}`));
 }
 
 export async function getVendorMenuItems(vendorId: string): Promise<MenuItem[]> {
@@ -130,7 +401,8 @@ export async function getVendorMenuItems(vendorId: string): Promise<MenuItem[]> 
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
   }
-  return request<MenuItem[]>("/api/menu-items/vendor/me");
+  const items = await request<ApiMenuItem[]>("/api/menu-items/mine");
+  return items.map(toMenuItem);
 }
 
 export async function createMenuItem(
@@ -173,10 +445,12 @@ export async function createMenuItem(
     };
     return db.addMenuItem(item);
   }
-  return request<MenuItem>("/api/menu-items", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return toMenuItem(
+    await request<ApiMenuItem>("/api/menu-items", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  );
 }
 
 export async function updateMenuItem(
@@ -200,10 +474,12 @@ export async function updateMenuItem(
     if (!updated) throw new ApiError("Menu item not found", 404);
     return updated;
   }
-  return request<MenuItem>(`/api/menu-items/${id}`, {
-    method: "PATCH",
-    body: JSON.stringify(input),
-  });
+  return toMenuItem(
+    await request<ApiMenuItem>(`/api/menu-items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify(input),
+    }),
+  );
 }
 
 export async function deleteMenuItem(id: string, vendorId: string): Promise<void> {
@@ -254,10 +530,12 @@ export async function setMenuItemAvailability(
     if (!updated) throw new ApiError("Menu item not found", 404);
     return updated;
   }
-  return request<MenuItem>(`/api/menu-items/${id}/availability`, {
-    method: "PATCH",
-    body: JSON.stringify({ active }),
-  });
+  return toMenuItem(
+    await request<ApiMenuItem>(`/api/menu-items/${id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: active ? "approved" : "inactive" }),
+    }),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -328,10 +606,12 @@ export async function createOrder(
     };
     return db.addOrder(order);
   }
-  return request<Order>("/api/orders", {
-    method: "POST",
-    body: JSON.stringify(input),
-  });
+  return toOrder(
+    await request<ApiOrder>("/api/orders", {
+      method: "POST",
+      body: JSON.stringify(input),
+    }),
+  );
 }
 
 export async function getOrdersForUser(user: {
@@ -351,9 +631,10 @@ export async function getOrdersForUser(user: {
       );
     return orders;
   }
-  return request<Order[]>(
-    user.role === "vendor" ? "/api/orders/vendor" : "/api/orders/customer",
+  const orders = await request<ApiOrder[]>(
+    user.role === "vendor" ? "/api/orders/vendor" : "/api/orders/mine",
   );
+  return orders.map(toOrder);
 }
 
 export async function getAllOrders(): Promise<Order[]> {
@@ -366,7 +647,8 @@ export async function getAllOrders(): Promise<Order[]> {
           new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
       );
   }
-  return request<Order[]>("/api/admin/orders");
+  const orders = await request<ApiOrder[]>("/api/admin/orders");
+  return orders.map(toOrder);
 }
 
 export async function getOrderByVendor(
@@ -378,7 +660,8 @@ export async function getOrderByVendor(
       .orders()
       .find((o) => o._id === orderId && o.vendorId === vendorId);
   }
-  return request<Order>(`/api/orders/${orderId}`);
+  const order = await request<ApiOrder>(`/api/orders/${orderId}`);
+  return toOrder(order);
 }
 
 export async function respondToOrder(
@@ -409,10 +692,11 @@ export async function respondToOrder(
     if (!updated) throw new ApiError("Order not found", 404);
     return updated;
   }
-  return request<Order>(`/api/orders/${orderId}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ action }),
-  });
+  return toOrder(
+    await request<ApiOrder>(`/api/orders/${orderId}/${action}`, {
+      method: "PATCH",
+    }),
+  );
 }
 
 export async function cancelOrder(
@@ -441,7 +725,11 @@ export async function cancelOrder(
     if (!updated) throw new ApiError("Order not found", 404);
     return updated;
   }
-  return request<Order>(`/api/orders/${orderId}/cancel`, { method: "PATCH" });
+  return toOrder(
+    await request<ApiOrder>(`/api/orders/${orderId}/cancel`, {
+      method: "PATCH",
+    }),
+  );
 }
 
 /* ------------------------------------------------------------------ */
@@ -573,7 +861,8 @@ export async function getVendorStats(vendorId: string): Promise<DashboardStats> 
       monthlyRevenue: monthlyRevenue(orders),
     };
   }
-  return request<DashboardStats>("/api/dashboard/vendor");
+  const payload = await request<ApiDashboardStats>("/api/dashboard/vendor");
+  return toDashboardStats(payload);
 }
 
 export async function getCustomerStats(customerId: string): Promise<DashboardStats> {
@@ -589,7 +878,8 @@ export async function getCustomerStats(customerId: string): Promise<DashboardSta
       monthlyRevenue: monthlyRevenue(orders),
     };
   }
-  return request<DashboardStats>("/api/dashboard/customer");
+  const payload = await request<ApiDashboardStats>("/api/dashboard/customer");
+  return toDashboardStats(payload);
 }
 
 export async function getAdminStats(): Promise<DashboardStats> {
@@ -616,12 +906,39 @@ export async function getAdminStats(): Promise<DashboardStats> {
       monthlyRevenue: monthlyRevenue(orders),
     };
   }
-  return request<DashboardStats>("/api/dashboard/admin");
+  const payload = await request<ApiDashboardStats>("/api/dashboard/admin");
+  return toDashboardStats(payload);
 }
 
 /* ------------------------------------------------------------------ */
 /* Admin — users & moderation & transactions                           */
 /* ------------------------------------------------------------------ */
+
+type ApiUser = Omit<Partial<PizzaUser>, "id" | "createdAt"> & {
+  id?: string;
+  _id?: string;
+  createdAt?: string;
+};
+
+/**
+ * The Express API returns admin user documents with `_id` (Mongoose naming),
+ * while the UI expects `id` — the bare `_id` made React list keys `undefined`.
+ */
+function toUser(raw: ApiUser): PizzaUser {
+  const base = raw as Partial<PizzaUser>;
+  return {
+    id: String(raw.id ?? raw._id ?? ""),
+    name: base.name ?? "",
+    email: base.email ?? "",
+    image: base.image ?? undefined,
+    role: base.role ?? "customer",
+    isBlocked: Boolean(base.isBlocked),
+    businessName: base.businessName,
+    subscriptionPlan: base.subscriptionPlan ?? "free",
+    subscriptionExpiresAt: base.subscriptionExpiresAt,
+    createdAt: String(base.createdAt ?? ""),
+  };
+}
 
 export async function getAdminUsers(
   params: { search?: string; role?: string } = {},
@@ -645,7 +962,8 @@ export async function getAdminUsers(
   const qs = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v) as [string, string][],
   ).toString();
-  return request<PizzaUser[]>(`/api/users?${qs}`);
+  const users = await request<ApiUser[]>(`/api/users?${qs}`);
+  return users.map(toUser);
 }
 
 export async function setUserBlocked(
@@ -663,10 +981,12 @@ export async function setUserBlocked(
     if (!updated) throw new ApiError("User not found", 404);
     return updated;
   }
-  return request<PizzaUser>(`/api/users/${userId}/block`, {
-    method: "PATCH",
-    body: JSON.stringify({ isBlocked }),
-  });
+  return toUser(
+    await request<ApiUser>(`/api/users/${userId}/block`, {
+      method: "PATCH",
+      body: JSON.stringify({ isBlocked }),
+    }),
+  );
 }
 
 export async function getAdminMenuItems(
@@ -694,7 +1014,8 @@ export async function getAdminMenuItems(
   const qs = new URLSearchParams(
     Object.entries(params).filter(([, v]) => v) as [string, string][],
   ).toString();
-  return request<MenuItem[]>(`/api/admin/menu-items?${qs}`);
+  const items = await request<ApiMenuItem[]>(`/api/menu-items/admin?${qs}`);
+  return items.map(toMenuItem);
 }
 
 export async function moderateMenuItem(
@@ -712,10 +1033,12 @@ export async function moderateMenuItem(
     if (!updated) throw new ApiError("Menu item not found", 404);
     return updated;
   }
-  return request<MenuItem>(`/api/admin/menu-items/${itemId}/status`, {
-    method: "PATCH",
-    body: JSON.stringify({ status }),
-  });
+  return toMenuItem(
+    await request<ApiMenuItem>(`/api/menu-items/admin/${itemId}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    }),
+  );
 }
 
 export async function adminDeleteMenuItem(itemId: string): Promise<void> {
@@ -726,7 +1049,7 @@ export async function adminDeleteMenuItem(itemId: string): Promise<void> {
     }
     return;
   }
-  await request<void>(`/api/admin/menu-items/${itemId}`, { method: "DELETE" });
+  await request<void>(`/api/menu-items/admin/${itemId}`, { method: "DELETE" });
 }
 
 export async function getTransactions(): Promise<Transaction[]> {

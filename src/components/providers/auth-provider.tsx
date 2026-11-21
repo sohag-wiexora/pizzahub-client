@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { authClient } from "@/lib/auth/auth-client";
+import { clearAuthToken } from "@/lib/api-client";
 import { USE_MOCK_DATA } from "@/lib/env";
 import { db, demoCredentials } from "@/lib/mock/data";
 import type {
@@ -227,7 +228,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 password,
                 callbackURL: "/dashboard",
               }),
-            ),
+            ).then((result) => {
+              if (result.ok) clearAuthToken();
+              return result;
+            }),
       signInWithGoogle: () =>
         isMock
           ? Promise.resolve().then(() => {
@@ -289,7 +293,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             role: input.role,
             businessName: input.businessName,
           } as Parameters<typeof authClient.signUp.email>[0]),
-        );
+        ).then((result) => {
+          if (result.ok) clearAuthToken();
+          return result;
+        });
       },
       signOut: async () => {
         if (isMock) {
@@ -297,6 +304,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           return;
         }
         await authClient.signOut();
+        clearAuthToken();
         session.refetch();
       },
       updateProfile: async (input) => {

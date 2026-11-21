@@ -25,7 +25,7 @@ export async function uploadToImgBB(file: File): Promise<string> {
   const form = new FormData();
   form.append("image", file);
 
-  const res = await fetch(`${API_BASE_URL}/api/uploads`, {
+  const res = await fetch(`${API_BASE_URL}/api/v1/uploads/image`, {
     method: "POST",
     body: form,
     credentials: "include",
