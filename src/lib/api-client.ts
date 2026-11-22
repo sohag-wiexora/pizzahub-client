@@ -987,9 +987,8 @@ export async function setUserBlocked(
     return updated;
   }
   return toUser(
-    await request<ApiUser>(`/api/users/${userId}/block`, {
+    await request<ApiUser>(`/api/users/${userId}/${isBlocked ? "block" : "unblock"}`, {
       method: "PATCH",
-      body: JSON.stringify({ isBlocked }),
     }),
   );
 }
@@ -1080,7 +1079,7 @@ export async function createCheckoutSession(vendorId: string): Promise<CheckoutS
     const sessionId = `cs_demo_${Date.now()}`;
     return { sessionId, url: `/payment/success?session_id=${sessionId}` };
   }
-  return request<CheckoutSession>("/api/payments/create-checkout-session", {
+  return request<CheckoutSession>("/api/payments/checkout-session", {
     method: "POST",
     body: JSON.stringify({ vendorId }),
   });
