@@ -1,3 +1,4 @@
+import { getAuthToken } from "@/lib/api-client";
 import { API_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
 
 /**
@@ -25,10 +26,16 @@ export async function uploadToImgBB(file: File): Promise<string> {
   const form = new FormData();
   form.append("image", file);
 
+  // The upload route requires the Bearer JWT (see the Express authenticate
+  // middleware). The cross-site session cookie is never sent here, so the
+  // request needs the same token the rest of the API client uses.
+  const token = await getAuthToken();
+
   const res = await fetch(`${API_BASE_URL}/api/v1/uploads/image`, {
     method: "POST",
     body: form,
     credentials: "include",
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
   });
 
   const json = (await res.json().catch(() => null)) as

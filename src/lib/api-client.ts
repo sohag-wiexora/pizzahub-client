@@ -15,7 +15,7 @@ import type {
   Transaction,
   UserRole,
 } from "@/types";
-import { API_BASE_URL, AUTH_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
+import { API_BASE_URL, USE_MOCK_DATA } from "@/lib/env";
 import { db } from "@/lib/mock/data";
 
 /**
@@ -50,14 +50,19 @@ export function clearAuthToken(): void {
   authToken = null;
 }
 
-async function getAuthToken(forceRefresh = false): Promise<string | null> {
+export async function getAuthToken(
+  forceRefresh = false,
+): Promise<string | null> {
   if (USE_MOCK_DATA) return null;
   if (!forceRefresh && authToken && authToken.expiresAt > Date.now()) {
     return authToken.value;
   }
 
   try {
-    const res = await fetch(`${AUTH_BASE_URL}/api/auth/token`, {
+    // Same-origin on purpose: next.config.ts rewrites `/api/auth/*` to the
+    // backend, so the session cookie is sent (first-party) and `/token`
+    // answers 200. A cross-site call would drop the cookie and return 401.
+    const res = await fetch("/api/auth/token", {
       credentials: "include",
       headers: { Accept: "application/json" },
     });

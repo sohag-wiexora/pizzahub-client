@@ -112,7 +112,8 @@ Everything else — `BETTER_AUTH_SECRET`, `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SEC
 ### 2. JWT / session flow without `middleware.ts`
 Next.js 16 **removed `middleware.ts`** in favour of `src/proxy.ts` (`export function proxy()`):
 
-- `proxy.ts` runs on the edge for `/dashboard/*`, `/menu/*`, `/payment/*`, `/profile-settings/*` and checks for a session cookie (`better-auth.session_token` for real auth, `ph_mock_session` for the mock). No cookie → redirect to `/sign-in?next=…`
+- `proxy.ts` runs on the edge for `/dashboard/*`, `/menu/*`, `/payment/*`, `/profile-settings/*` and checks for a session cookie (`better-auth.session_token` / `__Secure-better-auth.session_token` for real auth, `ph_mock_session` for the mock). No cookie → redirect to `/sign-in?next=…`
+- Better Auth calls are **same-origin**: `next.config.ts` rewrites `/api/auth/*` to the Render backend, so the session cookie belongs to the client domain. Calling the backend origin directly would make it a third-party cookie (blocked by browsers → `get-session` / `/api/auth/token` 401 → endless `/dashboard` → `/sign-in` loop)
 - After redirect, `next` is honoured so users land where they intended
 - Cookie presence alone is **not** authorization — `AuthProvider` (Better Auth `useSession`) re-fetches the user, and `DashboardGate roles={[…]}` blocks other roles with an *Access Restricted* screen. The Express API (JWT in the session cookie) repeats every ownership/role check, so a spoofed client request fails server-side
 
@@ -129,7 +130,7 @@ Orders carry a `statusHistory` event log. `respondToOrder` only succeeds from `p
 `createCheckoutSession` asks the server for a Checkout Session bound to the **session's** vendor id (never a client-supplied one). Success/cancel redirects go to `/payment/success` / `/payment/cancel`, and premium is only activated by the server-side **Stripe webhook** — the success page merely displays state.
 
 ### 7. Mock → Real API swap in one variable
-All data flows through `src/lib/api-client.ts`. When `NEXT_PUBLIC_API_URL` is empty the mock implements the full contract (shapes + status codes + business rules). Set it to the Render origin and every function calls `${NEXT_PUBLIC_API_URL}/api/…` with cookies instead — no component changes.
+All data flows through `src/lib/api-client.ts`. When `NEXT_PUBLIC_API_URL` is empty the mock implements the full contract (shapes + status codes + business rules). Set it to the Render origin and every function calls `${NEXT_PUBLIC_API_URL}/api/v1/…` with a `Bearer` JWT obtained from the same-origin `/api/auth/token` endpoint — no component changes.
 
 ### 8. Image uploads stay secret-free in the browser
 Menu photos and avatars are posted to the backend (`POST /api/uploads`); the server pushes them to **ImgBB** with the key from its own `.env` and returns the public URL. In demo mode the picked file is previewed locally as a data URL (`next/image` auto-unoptimizes data URLs), so the flow is complete without any API key on the client.

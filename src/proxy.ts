@@ -8,9 +8,22 @@ import { NextResponse, type NextRequest } from "next/server";
  * happens again on the client and (authoritatively) on the Express API.
  *
  * Recognised session cookies:
- *  - better-auth.session_token → real Better Auth session
- *  - ph_mock_session           → mock session used before the API is wired
+ *  - better-auth.session_token          → real Better Auth session (http/dev)
+ *  - __Secure-better-auth.session_token → real session over HTTPS
+ *    (Better Auth prefixes secure cookies with `__Secure-`, which is what
+ *    production/Vercel uses — checking only the unprefixed name caused an
+ *    endless /dashboard → /sign-in redirect loop)
+ *  - ph_mock_session                    → mock session used before the API is wired
+ *
+ * The auth endpoints are proxied through this origin (see next.config.ts), so
+ * the Better Auth cookie is first-party and actually visible here.
  */
+
+const SESSION_COOKIES = [
+  "better-auth.session_token",
+  "__Secure-better-auth.session_token",
+  "ph_mock_session",
+];
 
 const PROTECTED_PREFIXES = [
   "/dashboard",
@@ -27,9 +40,9 @@ export function proxy(request: NextRequest) {
   );
   if (!needsAuth) return NextResponse.next();
 
-  const authenticated =
-    request.cookies.has("better-auth.session_token") ||
-    request.cookies.has("ph_mock_session");
+  const authenticated = SESSION_COOKIES.some((name) =>
+    request.cookies.has(name),
+  );
   if (authenticated) return NextResponse.next();
 
   const url = request.nextUrl.clone();

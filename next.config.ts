@@ -18,6 +18,25 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async rewrites() {
+    const backend = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
+    if (!backend) return [];
+
+    return {
+      // Better Auth is hosted by the Express backend, but the browser must
+      // reach it through THIS origin (`/api/auth/*`). Otherwise the session
+      // cookie belongs to the backend's domain (…onrender.com) and becomes a
+      // third-party cookie on the client domain (…vercel.app) — Chrome blocks
+      // those, so `get-session` / `/api/auth/token` return 401 even after a
+      // successful sign-in. Proxying keeps the cookie first-party.
+      beforeFiles: [
+        {
+          source: "/api/auth/:path*",
+          destination: `${backend}/api/auth/:path*`,
+        },
+      ],
+    };
+  },
   images: {
     remotePatterns: [
       // Verified Unsplash photography used by the mock dataset

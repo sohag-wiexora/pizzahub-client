@@ -1,0 +1,1 @@
+Get-Content -Path "src/components/auth/sign-in-view.tsx" -Raw

@@ -1,22 +1,31 @@
 "use client";
 
 import { createAuthClient } from "better-auth/react";
-import { AUTH_BASE_URL } from "@/lib/env";
 
 /**
- * Better Auth client bound to the Express server (pizzahub-server).
- * The server owns the session cookie (httpOnly) and exposes the JWT plugin,
- * so nothing sensitive ever lives in the browser.
+ * Better Auth client.
  *
- * In mock mode there is no backend URL yet — fall back to the current origin
- * so the client stays harmless (requests simply 401 until the API exists).
+ * The auth server lives on the Express backend, but the browser talks to it
+ * through this app's own origin: next.config.ts rewrites `/api/auth/*` to the
+ * backend. That keeps the session cookie first-party.
+ *
+ * Calling the backend origin directly (e.g. …onrender.com from …vercel.app)
+ * would make the cookie a third-party cookie, which modern browsers block —
+ * `get-session` and `/api/auth/token` then answer 401 even right after a
+ * successful sign-in, and the dashboard guard bounces the user back.
  */
+const fallbackBaseURL =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  (process.env.VERCEL_PROJECT_PRODUCTION_URL
+    ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+    : process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : "http://localhost:3000");
+
 export const authClient = createAuthClient({
+  // In the browser always use the current origin, so cookies stay first-party.
   baseURL:
-    AUTH_BASE_URL ||
-    (typeof window !== "undefined"
-      ? window.location.origin
-      : "http://localhost:3000"),
+    typeof window !== "undefined" ? window.location.origin : fallbackBaseURL,
 });
 
 export const { useSession, signIn, signUp, signOut } = authClient;
