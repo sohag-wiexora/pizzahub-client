@@ -260,14 +260,14 @@ export function Navbar() {
                       <Button
                         onClick={handleSignOut}
                         variant="outline"
-                        className="w-full rounded-full border-red-400/40 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+                        className="w-full rounded-full border-red-400/40 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200"
                       >
                         <LogOut className="size-4" /> Logout
                       </Button>
                     </>
                   ) : (
                     <>
-                      <Button asChild variant="outline" className="w-full rounded-full border-gold/40 text-ivory hover:bg-white/10">
+                      <Button asChild variant="outline" className="w-full rounded-full border-gold/40 bg-transparent text-ivory hover:bg-white/10 hover:text-ivory">
                         <Link href="/sign-in" onClick={() => setOpen(false)}>
                           Sign In
                         </Link>

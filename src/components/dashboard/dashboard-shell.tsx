@@ -163,7 +163,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start rounded-xl border-sidebar-border text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
+          className="w-full justify-start rounded-xl border-sidebar-border bg-transparent text-sidebar-foreground/80 hover:bg-sidebar-accent/60 hover:text-sidebar-foreground"
           asChild
         >
           <Link href="/profile-settings">
@@ -173,7 +173,7 @@ function SidebarContent({ onNavigate }: { onNavigate?: () => void }) {
         <Button
           variant="outline"
           size="sm"
-          className="w-full justify-start rounded-xl border-red-400/30 text-red-300 hover:bg-red-500/10 hover:text-red-200"
+          className="w-full justify-start rounded-xl border-red-400/30 bg-transparent text-red-300 hover:bg-red-500/10 hover:text-red-200"
           onClick={async () => {
             await signOut();
             toast.success("Signed out", { description: "See you soon!" });

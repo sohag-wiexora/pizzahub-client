@@ -83,7 +83,7 @@ export function Hero() {
               asChild
               size="lg"
               variant="outline"
-              className="h-12 rounded-full border-ivory/25 px-6 text-ivory hover:bg-white/10"
+              className="h-12 rounded-full border-ivory/25 bg-transparent px-6 text-ivory hover:bg-white/10 hover:text-ivory"
             >
               <Link href="#featured">
                 <Play className="size-4 fill-current" /> Watch Video
